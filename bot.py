@@ -27,7 +27,7 @@ import json
 from pickle import OBJ
 from urllib import request, parse
 import requests
-#from scratch import call_claude, SYSTEM_PROMPT, push_to_github
+#from scratch import call_claude, SYSTEM_PROMPT, git_push
 from claude import git_push
 from dotenv import load_dotenv
 
@@ -202,10 +202,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             print("send message error, code = ", code, ", msg =", rsp_dict.get("msg", ""))
 
 def run():
-    port = 8000
+    port = os.getenv('PORT')
     server_address = ('', port)
     httpd = HTTPServer(server_address, RequestHandler)
-    print("start.....")
+    print(f"Server starting on por.t {port}...")
     httpd.serve_forever()
 
 if __name__ == '__main__':
