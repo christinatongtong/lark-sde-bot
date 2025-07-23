@@ -2,4 +2,3 @@ claude-code-sdk
 requests
 python-dotenv
 PyGithub
-anthropic

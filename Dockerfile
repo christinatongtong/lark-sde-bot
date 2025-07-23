@@ -7,13 +7,12 @@ WORKDIR /app
 # Install system dependencies (including git and ping)
 # RUN apt-get update && apt-get install -y iputils-ping
 
-# Test ping (optional - remove this line if you don't need it)
 RUN apt-get update && apt-get install -y \
     git \
     curl \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
-
-# Test ping (optional - remove this line if you don't need it)
 
 # Copy requirements first for better caching
 COPY requirements.txt .
@@ -23,6 +22,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
+
+RUN npm install -g @anthropic-ai/claude-code
+
+RUN git config --global user.email "christina.ddding@gmail.com" \
+    && git config --global user.name "christinatongtong"
 
 # Cloud Run uses PORT environment variable
 EXPOSE 8080

@@ -43,8 +43,6 @@ class RequestHandler(BaseHTTPRequestHandler):
     seen_events = set()
 
     def do_POST(self):
-        # Debug: Print process ID and set size at start of each request
-        print(f"Process ID: {os.getpid()}, seen_events size: {len(self.seen_events)}")
         # 解析请求 body
         req_body = self.rfile.read(int(self.headers['content-length']))
         obj = json.loads(req_body.decode("utf-8"))
@@ -65,18 +63,20 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         # check if duplicate event
-        print(f"Current seen_events size: {len(self.seen_events)}")
-        print(f"Current seen_events: {self.seen_events}")
-
         event_id = obj['header']['event_id']
-        print(f"Processing event_id: '{event_id}' (type: {type(event_id)})")
 
-        if event_id in self.seen_events:
+        if event_id in RequestHandler.seen_events:
             print(f"duplicate event ignored: '{event_id}'")
             self.response("")
             return
-        self.seen_events.add(event_id)
+        RequestHandler.seen_events.add(event_id)
+
+        # Clear seen_events if it gets large
+        if len(RequestHandler.seen_events) >= 30:
+            RequestHandler.seen_events.clear()
+
         print(f"Added event_id to seen_events: '{event_id}'")
+        print(f"Total seen_events now: {len(RequestHandler.seen_events)}")
 
         event = obj.get("event", {})
         if 'message' in event.keys():
@@ -109,20 +109,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         # 机器人 echo 收到的消息
         PM_msg = json.loads(event['message']['content']).get("text", "")
 
-        # end early if the message is too short. TODO: GITHUB PUSH DEF STILL GONNA RUN
         if len(PM_msg) < 10:
             self.response("")
             return
 
+        self.send_message(access_token, event, f"🤖 Processing your request, I'll send PR link when ready...")
+
         PR_url = git_push(PM_msg)
 
         # send each thinking message
-        if event['message']['chat_type'] == "p2p":
-            open_id = event['sender']['sender_id'].get("open_id")
-            self.send_message(access_token, open_id, f"Pull Request created successfully! Click here to view: {PR_url}")
-        elif event['message']['chat_type'] == "group":
-            chat_id = event['message'].get("chat_id")
-            self.send_message(access_token, chat_id, f"Pull Request created successfully! Click here to view: {PR_url}")
+        self.send_message(access_token, event, f"Pull Request created successfully! Click here to view: {PR_url}")
 
         print("DONE")
         self.response("{}")  # Send empty JSON object
@@ -133,6 +129,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(body.encode())
+
 
     def get_tenant_access_token(self):
         url = "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal"
@@ -160,7 +157,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return ""
         return rsp_dict.get("tenant_access_token", "")
 
-    def send_message(self, token, id, text):
+    def send_message(self, token, event, text):
+        if event['message']['chat_type'] == "p2p":
+            id = event['sender']['sender_id'].get("open_id")
+        elif event['message']['chat_type'] == "group":
+            id = event['message'].get("chat_id")
+
         url = "https://open.larksuite.com/open-apis/im/v1/messages"
 
         headers = {
@@ -202,10 +204,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             print("send message error, code = ", code, ", msg =", rsp_dict.get("msg", ""))
 
 def run():
-    port = os.getenv('PORT')
+    port = int(os.getenv('PORT'))
     server_address = ('', port)
     httpd = HTTPServer(server_address, RequestHandler)
-    print(f"Server starting on por.t {port}...")
+    print(f"Server starting on port {port}...")
     httpd.serve_forever()
 
 if __name__ == '__main__':

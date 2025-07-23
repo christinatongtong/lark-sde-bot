@@ -23,7 +23,6 @@ You are a codebase engineer. Product manager gives you a natural-language descri
 
 1. explore the codebase to understand the current structure
 2. Make the necessary changes to implement the requested modification
-3. Make the necessary changes to implement the requested modification
 
 """
 
@@ -33,7 +32,7 @@ async def call_claude(repo_path, PM_prompt: str):
         system_prompt=SYSTEM_PROMPT,
         cwd=repo_path,
         allowed_tools=["Bash", "Edit", "Glob", "Grep", "LS", "MultiEdit"],
-        permission_mode="bypassPermissions",  # This skips all permission checks
+        permission_mode="acceptEdits",  # This skips all permission checks
         max_turns=6
     )
 
@@ -59,9 +58,12 @@ def git_push(PM_prompt: str):
         # Get environment variables
         github_token = os.getenv('GITHUB_TOKEN')
         git_repo_url = os.getenv('GIT_REPO_URL')
+        git_repo_url_auth = git_repo_url.replace(
+                'https://github.com/',
+                f'https://{github_token}@github.com/'
+            )
 
         if not github_token:
-            print("GITHUB_TOKEN not set")
             return {"error": "GITHUB_TOKEN not set"}
 
         # git clone to temporary space
@@ -70,23 +72,36 @@ def git_push(PM_prompt: str):
 
         subprocess.run([
             "git", "clone",
-            git_repo_url,
+            git_repo_url_auth,
             repo_path
         ])
 
+        ### CALLING CLAUDE CODE SDK ###
         asyncio.run(call_claude(repo_path, PM_prompt))
+        ### CALLING CLAUDE CODE SDK ###
+
 
         os.chdir(repo_path)
         print("repo_path: ", repo_path)
 
         # Create a new branch
-        branch = f"pm-thru-claude-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        subprocess.run(["git", "checkout", "-b", branch], check=True)
+        branch = f"pm-thru-claude-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
+        result = subprocess.run(["git", "branch", "--list", branch], check=True, capture_output=True, text=True)
+        if result.stdout.strip():
+            subprocess.run(["git", "checkout", branch], check=True)
+        else:
+            subprocess.run(["git", "checkout", "-b", branch], check=True)
 
-        # Commit & push
+        # # check status, commit & push
         subprocess.run(["git", "add", "."], check=True)
+        result = subprocess.run(["git", "status", "--porcelain"], check=True, capture_output=True, text=True)
+        if result.stdout.strip():
+            print("git status: ", result.stdout.strip())
+        else:
+            return {"error": "No changes to commit"}
+
         subprocess.run(
-            ["git", "commit", "-m", f"LLM: {PM_prompt}"], check=True
+            ["git", "commit", "-m", f"PM:{PM_prompt}"], check=True
         )
         subprocess.run(
             ["git", "push", "-u", "origin", branch],
@@ -100,7 +115,7 @@ def git_push(PM_prompt: str):
         owner, name = repo_url.split("/")[-2:]
         repo = gh.get_repo(f"{owner}/{name}")
         pr = repo.create_pull(
-            title=f"LLM: {PM_prompt}",
+            title=PM_prompt,
             body=f"Automated changes per instruction: {PM_prompt}",
             head=branch,
             base="main"
