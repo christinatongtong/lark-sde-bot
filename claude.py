@@ -5,6 +5,8 @@ import asyncio
 from dotenv import load_dotenv
 from datetime import datetime
 from github import Github
+import traceback
+
 
 load_dotenv()
 
@@ -70,11 +72,17 @@ def git_push(PM_prompt: str):
         temp_dir = tempfile.mkdtemp()
         repo_path = os.path.join(temp_dir, "repo")
 
+        if not os.path.exists(temp_dir):
+            return {"error": f"temp dir does not exist: {temp_dir}"}
+
         subprocess.run([
             "git", "clone",
             git_repo_url_auth,
             repo_path
         ])
+
+        if not os.path.exists(repo_path):
+            return {"error": f"repo path does not exist: {repo_path}"}
 
         ### CALLING CLAUDE CODE SDK ###
         asyncio.run(call_claude(repo_path, PM_prompt))
@@ -124,8 +132,7 @@ def git_push(PM_prompt: str):
         return pr.html_url
 
     except Exception as e:
-        print(f"Error creating PR: {e}")
-        return {"error": str(e)}
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 if __name__ == "__main__":
     # Properly run the async function
