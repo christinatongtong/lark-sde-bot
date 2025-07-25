@@ -25,8 +25,8 @@ COPY . .
 
 RUN npm install -g @anthropic-ai/claude-code
 
-RUN git config --global user.email "christina.ddding@gmail.com" \
-    && git config --global user.name "christinatongtong"
+RUN git config --global user.email "<your-github-email>" \
+    && git config --global user.name "<your-github-username>"
 
 # Cloud Run uses PORT environment variable
 EXPOSE 8080
