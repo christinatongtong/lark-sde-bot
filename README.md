@@ -1,4 +1,4 @@
-# Lark-sde-bot
+# Lark SDE Bot
 
 A Claude Code powered Lark bot that automatically implements codebase changes from natural language, responding with a PR link. The creation of this bot was inspired by the frustration of software developers who receive a ton of small requests from product managers.
 
