@@ -1,26 +1,7 @@
 #!/usr/bin/env python
 # --coding:utf-8--
 
-# from scratch.py
-
-import tempfile
 import os
-import subprocess
-import asyncio
-
-
-from claude_code_sdk import (
-    UserMessage,
-    AssistantMessage,
-    ClaudeCodeOptions,
-    ResultMessage,
-    TextBlock,
-    ToolResultBlock,
-    query,
-)
-
-# bot.py
-
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from os import path
 import json
@@ -29,7 +10,9 @@ from urllib import request, parse
 import requests
 #from scratch import call_claude, SYSTEM_PROMPT, git_push
 from claude import git_push
+from claude_cleaner import GitProcessor
 from dotenv import load_dotenv
+import traceback
 
 load_dotenv()
 
@@ -115,7 +98,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self.send_message(access_token, event, f"🤖 Processing your request, I'll send PR link when ready...")
 
-        PR_url = git_push(PM_msg)
+        # PR_url = git_push(PM_msg)
+        git_processor = GitProcessor(PM_msg)
+        PR_url = git_processor.actions()
 
         # send each thinking message
         self.send_message(access_token, event, f"Pull Request created successfully! Click here to view: {PR_url}")
@@ -204,6 +189,68 @@ class RequestHandler(BaseHTTPRequestHandler):
             print("send message error, code = ", code, ", msg =", rsp_dict.get("msg", ""))
 
 def run():
+    test_event = {
+    'schema': '2.0',
+    'header': {
+        'event_id': '3dfa140733d1744b30efee001deaa8c4',
+        'token': 'FqxQFraGKf2YNoAEk97xUfmFTCDJxKOK',
+        'create_time': '1752736014686',
+        'event_type': 'im.message.receive_v1',
+        'tenant_key': '14a73a6a10dd1743',
+        'app_id': 'cli_a8fcd5e4d1b9d010'
+    },
+    'event': {
+        'message': {
+            'chat_id': 'oc_bd3057ed9ac8db59ea9aba9a299c4eac',
+            'chat_type': 'p2p',
+            'content': '{"text":"hi"}',
+            'create_time': '1752736014456',
+            'message_id': 'om_x100b48be5e2ba0900d60eb30be638ad',
+            'message_type': 'text',
+            'update_time': '1752736014456'
+        },
+        'sender': {
+            'sender_id': {
+                'open_id': 'ou_6e8512ef2178e21dece8b91d10db1d07',
+                'union_id': 'on_0903fc993554ee68afee67f84b32d438',
+                'user_id': 'g88c263e'
+            },
+            'sender_type': 'user',
+            'tenant_key': '14a73a6a10dd1743'
+        }
+    }
+    }
+
+    class MockRequestHandler(RequestHandler):
+        def __init__(self):
+            # Don't call parent constructor to avoid HTTP objects
+            pass
+
+        def response(self, body):
+            # Mock response method
+            print(f"Response: {body}")
+
+        def send_message(self, token, event, text):
+            # Mock send_message method
+            print(f"Would send message: {text}")
+            print(f"To user: {event['sender']['sender_id'].get('open_id')}")
+            return True
+
+    # Test the handler
+    handler = MockRequestHandler()
+    event = test_event.get("event", {})
+
+    print("=== Testing bot.py locally ===")
+    print(f"Test message: {json.loads(event['message']['content'])['text']}")
+    print("Processing...")
+
+    handler.handle_message(event)
+
+    print("=== Test completed ===")
+
+
+
+def run_server():
     port = int(os.getenv('PORT'))
     server_address = ('', port)
     httpd = HTTPServer(server_address, RequestHandler)

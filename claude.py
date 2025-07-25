@@ -6,7 +6,10 @@ from dotenv import load_dotenv
 from datetime import datetime
 from github import Github
 import traceback
+import logging
 
+# Get logger
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -56,6 +59,7 @@ async def call_claude(repo_path, PM_prompt: str):
 
 
 def git_push(PM_prompt: str):
+    logger.info(f"git_push called with PM_prompt: {PM_prompt}")
     try:
         # Get environment variables
         github_token = os.getenv('GITHUB_TOKEN')
@@ -66,6 +70,7 @@ def git_push(PM_prompt: str):
             )
 
         if not github_token:
+            logger.error("GITHUB_TOKEN not set")
             return {"error": "GITHUB_TOKEN not set"}
 
         # git clone to temporary space
@@ -132,6 +137,7 @@ def git_push(PM_prompt: str):
         return pr.html_url
 
     except Exception as e:
+        logger.error(f"Error in git_push: {e}")
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 if __name__ == "__main__":
